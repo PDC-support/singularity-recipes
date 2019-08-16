@@ -1,0 +1,39 @@
+# Header
+Bootstrap: docker
+From: ubuntu:latest
+# Sections
+
+%help
+  This container contains the basic
+  tools for further installing software
+  Based on UBUNTU latest version and
+  containing compilers, cmake, python3,
+  openmpi, gmp, mpfr,mpc,gcc
+  singularity inspect --deffile <image name>
+  for information about which versions where installed
+  
+%post
+  # Software versions
+  export OPENMPI=openmpi-4.0.0
+  export OPENMPIVERSION=4.0
+  # Installed softwares
+  apt-get -y update
+  apt-get install -y build-essential
+  apt-get install -y wget
+  apt-get install -y lzip
+  apt-get install -y m4
+  apt-get install -y libgfortran3
+  apt-get install -y gfortran
+  apt-get install -y cmake
+  apt-get install -y python3
+  apt-get install -y zlib1g-dev
+  wget https://www.open-mpi.org/software/ompi/v$OPENMPIVERSION/downloads/$OPENMPI.tar.gz
+  tar xvzf $OPENMPI.tar.gz
+  cd $OPENMPI
+  ./configure
+  make
+  make install
+  cd ..
+  rm -rf $OPENMPI*
+  ldconfig
+  
