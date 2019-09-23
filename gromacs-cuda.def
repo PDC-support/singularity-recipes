@@ -1,0 +1,79 @@
+# Header
+BootStrap: docker
+From: nvidia/cuda:10.1-devel-ubuntu18.04
+# Sections
+
+%help
+  Container with GROMACS (Cuda/GPU version)
+
+%environment
+  export PATH=${PATH}:/usr/local/bin
+
+%post
+  export JOBS=`nproc --ignore=1`
+  # Software versions
+  export OPENMPI_VERSION=4.0.0
+  export OPENMPI_MD5=7b4ddd4ec610cbd1059d23bca3bfd853
+  export OPENMPI=openmpi-${OPENMPI_VERSION}
+  export GROMACS_VERSION=2019.1
+  export GROMACS_MD5=dccfadda6a7d4ab80fcb4059606a4ef3
+  export GROMACS_ARCHITECTURE=AVX2_256
+
+  # Installed softwares
+  apt-get -y update
+  apt-get install -y build-essential \
+    wget \
+    lzip \
+    m4 \
+    libgfortran3 \
+    gfortran \
+    cmake \
+    python \
+    openssh-client \
+    zlib1g-dev
+
+  #apt-get install -y --no-install-recommends libgomp1 libopenmpi-dev openmpi-bin openmpi-common
+  wget https://www.open-mpi.org/software/ompi/v${OPENMPI_VERSION%.*}/downloads/$OPENMPI.tar.gz
+  echo "${OPENMPI_MD5}  ${OPENMPI}.tar.gz" > openmpi.tar.gz.md5
+  md5sum -c openmpi.tar.gz.md5
+  tar xvzf $OPENMPI.tar.gz
+  cd $OPENMPI
+  ./configure
+  make -j${JOBS}
+  make install
+  cd ..
+  rm -rf $OPENMPI*
+  ldconfig
+
+  cd ~/
+  wget http://ftp.gromacs.org/pub/gromacs/gromacs-${GROMACS_VERSION}.tar.gz
+  echo "${GROMACS_MD5}  gromacs-${GROMACS_VERSION}.tar.gz" > gromacs.tar.gz.md5
+  md5sum -c gromacs.tar.gz.md5
+  tar zxf gromacs-${GROMACS_VERSION}.tar.gz
+  cd gromacs-${GROMACS_VERSION}
+  mkdir build && cd build
+  CC=gcc CXX=g++ cmake .. \
+    -DGMX_OPENMP=ON \
+    -DGMX_GPU=ON \
+    -DGMX_DOUBLE=OFF \
+    -DGMX_SIMD=${GROMACS_ARCHITECTURE} \
+    -DGMX_MPI=ON \
+    -DGMX_CYCLE_SUBCOUNTERS=ON \
+    -DGMX_PREFER_STATIC_LIBS=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DGMX_EXTERNAL_BLAS=OFF \
+    -DGMX_EXTERNAL_LAPACK=OFF \
+    -DGMX_BUILD_OWN_FFTW=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda \
+    -DMPI_C_COMPILER=mpicc \
+    -DMPI_CXX_COMPILER=mpicxx \
+    -DCUDA_NVCC_FLAGS="-gencode;arch=compute_37,code=sm_37;"
+  make -j${JOBS}
+  make install
+
+%runscript
+  mpirun gmx_mpi ${@}
+
+%apprun nompi
+  gmx_mpi ${@}
